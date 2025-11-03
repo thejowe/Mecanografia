@@ -3,34 +3,31 @@ import random
 import time
 import math
 import winsound
+import os
 
+# --- Cargar el WAV una sola vez a memoria (latencia baja) ---
+KEY_WAV_BYTES = None
+KEY_WAV_PATH = "key.wav"  # tu archivo
+try:
+    if os.path.exists(KEY_WAV_PATH):
+        with open(KEY_WAV_PATH, "rb") as f:
+            KEY_WAV_BYTES = f.read()
+except Exception:
+    KEY_WAV_BYTES = None
+
+# ======== SONIDO ========
 def play_key_sound():
-    # Usa un sonido del sistema, no bloquea la app
-    try:
-        winsound.PlaySound('SystemAsterisk', winsound.SND_ALIAS | winsound.SND_ASYNC)
-    except RuntimeError:
-        pass
-
-def teclear(self, event):
-    if self.finalizado:
-        return
-
-    # Sonido al pulsar cualquier tecla
-    play_key_sound()
-
-    # Backspace también suena (opcionalmente puedes dejar solo aquí)
-    if event.keysym == "BackSpace":
-        # (tu lógica de borrar)
-        return
-
-    # (resto de tu lógica actual)
-
-def play_key_sound():
+    """
+    Intenta reproducir key.wav de forma asíncrona.
+    Si falla (no existe o error), usa un sonido del sistema como fallback.
+    """
     try:
         winsound.PlaySound('key.wav', winsound.SND_FILENAME | winsound.SND_ASYNC)
     except RuntimeError:
-        pass
-
+        try:
+            winsound.PlaySound('SystemAsterisk', winsound.SND_ALIAS | winsound.SND_ASYNC)
+        except RuntimeError:
+            pass
 
 # ----- Palabras y límites -----
 WORDS = [
@@ -95,13 +92,13 @@ class EntrenadorMecanografia:
         )
         self.titulo.pack(side="left", padx=16)
 
-        # Selector de tiempo
+        # Selector de tiempo (10/20/30 s)
         self.time_var = tk.IntVar(value=30)
         self.time_box = tk.Frame(self.header, bg=self.bg_base)
         self.time_box.pack(side="right", padx=16)
 
         tk.Label(self.time_box, text="Tiempo:", fg="#f5f5f7", bg=self.bg_base).pack(side="left", padx=(0,8))
-        for t in (15, 25, 35):
+        for t in (10, 20, 30):
             rb = tk.Radiobutton(
                 self.time_box, text=f"{t}s", variable=self.time_var, value=t,
                 fg="#f5f5f7", bg=self.bg_base, selectcolor="#1f2937",
@@ -333,12 +330,14 @@ class EntrenadorMecanografia:
         if self.finalizado:
             return
 
+        # Sonido una vez por tecla (incluye Backspace)
+        play_key_sound()
+
         # Backspace
         if event.keysym == "BackSpace":
             if self.entrada_usuario:
                 self.entrada_usuario = self.entrada_usuario[:-1]
                 self.render_text_colored()
-                self.pulse_text_bg(ok=True)
             if not self.timer_running:
                 self._start_timer_if_needed()
             return
@@ -355,7 +354,6 @@ class EntrenadorMecanografia:
             correcto = (event.char == self.texto_objetivo[i])
             self.entrada_usuario += event.char
             self.render_text_colored()
-            self.pulse_text_bg(ok=correcto)
             if not correcto:
                 self.shake_window()
 
@@ -388,7 +386,7 @@ class EntrenadorMecanografia:
         )
         self.start_confetti()
 
-        # >>> AUTO-SIGUIENTE TANDA DESPUÉS DE UN BREVE DELAY <<<
+        # Auto-siguiente tanda tras breve delay
         self.root.after(AUTO_NEXT_DELAY_MS, self.nueva_frase)
 
     # ===== Nueva tanda =====
